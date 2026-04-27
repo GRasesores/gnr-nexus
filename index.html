@@ -5514,6 +5514,15 @@ function renderStep1(c) {
     html += '</div>';
   });
     html += '</div>';
+    html += '</div>';
+    // Show text input when "otro" is selected
+    if (wizardData.giro === 'otro') {
+      html += '<div style="margin-top:14px">';
+      html += '<div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.5px;margin-bottom:6px">¿CUÁL ES TU GIRO ESPECÍFICO?</div>';
+      html += '<input class="wiz-input" id="w_giroCustom" type="text" placeholder="Ej: Gimnasio, Veterinaria, Agencia de viajes, Peluquería..." value="'+(wizardData.giroCustom||'')+'" oninput="wizardData.giroCustom=this.value" style="margin-bottom:4px">';
+      html += '<div style="font-size:11px;color:var(--gray)">Esto ayuda a la IA a generar segmentación específica para tu negocio</div>';
+      html += '</div>';
+    }
     html += '<div class="wiz-nav"><div></div><button class="btn btn-gold btn-wiz" onclick="wNext()" id="btnNext1a">SIGUIENTE →</button></div>';
     html += '</div>';
 
@@ -6103,6 +6112,25 @@ function getMetaAudienceLibrary(giro, prod) {
     }
   }
 
+  // GYM / FITNESS — cualquier giro
+  if (has(["gym","gimnasio","fitness","crossfit","funcional","entrenamiento","personal trainer","musculación","inscripción gym","membresía gym","clases de gym"])) {
+    return {
+      base:["Fitness","Gym","Ejercicio","Musculación","Crossfit","Entrenamiento funcional","Salud y bienestar","Rutinas de ejercicio","Cuerpo en forma","Suplementos deportivos"],
+      broad:["Fitness","Salud y bienestar"],
+      direct:["Fitness","Gym","Musculación","Crossfit"],
+      intent:["Entrenamiento funcional","Rutinas de ejercicio","Cuerpo en forma","Suplementos deportivos"],
+      avoid:["No uses imágenes de cuerpos extremos sin contexto","Meta restringe 'pérdida de peso garantizada'","No prometas resultados específicos en días"],
+      radius:10, age:"18-45", gender:"todos",
+      andromedaTip:"Gym: radio muy corto 5-10km. Enero y septiembre son los meses de mayor conversión — sube el presupuesto 2x esos meses. El copy de inscripción gratis o primer mes gratis convierte muy bien para atraer leads."
+    };
+  }
+
+  // PROMOCIÓN / DESCUENTO — detectar tipo de oferta
+  if (has(["inscripción gratis","inscripcion gratis","primer mes gratis","descuento","promoción","promo","oferta","2x1","gratis"])) {
+    // Enhance the result with promo-specific intent signals
+    // Will fall through to product/giro detection below, just note the promo context
+  }
+
   // ── FALLBACK: base del giro seleccionado ──────────────────────
   var baseByGiro = {
     restaurante: { base:["Comida y gastronomía","Restaurantes","Cocina mexicana","Foodie","Delivery de alimentos","Uber Eats","DiDi Food","Food Network","Gastronomía","Cocina casera"], broad:["Comida y gastronomía","Restaurantes"], direct:["Comida y gastronomía","Restaurantes","Cocina mexicana","Delivery"], intent:["Foodie","Uber Eats","DiDi Food","Gastronomía"], avoid:["No segmentes toda la República si tienes una sola sucursal"], radius:10, age:"22-55", gender:"todos", andromedaTip:"Restaurante: radio corto 8-12km. Advantage+ Audience con clientes frecuentes como semilla." },
@@ -6135,6 +6163,7 @@ function generateCampaign() {
 
   // ── Collect data ─────────────────────────────────────────────
   var giro    = wizardData.giro   || "servicios";
+  var giroCustomLabel = (wizardData.giro === "otro" && wizardData.giroCustom) ? wizardData.giroCustom : giroLabel;
   var obj     = wizardData.obj    || "leads";
   var budget  = wizardData.budget || "basico";
   var edadesArr = wizardData.edades && wizardData.edades.length > 0 ? wizardData.edades : [wizardData.edad||"25-44"];
@@ -6155,7 +6184,10 @@ function generateCampaign() {
   var budDay  = Math.round(budVal/30/100)*100;
   if (budDay < 100) budDay = 150;
 
-  var seg     = (window._apiSegOverride) ? window._apiSegOverride : getMetaAudienceLibrary(giro, prod);
+  var seg     = (window._apiSegOverride) ? window._apiSegOverride : getMetaAudienceLibrary(
+    giro,
+    (wizardData.giroCustom ? wizardData.giroCustom + " " : "") + prod
+  );
   window._apiSegOverride = null; // reset after use
   var radius  = seg.radius || 20;
   var ageRec  = seg.age    || "25-54";
@@ -6263,7 +6295,7 @@ function generateCampaign() {
   h += section("DIAGNÓSTICO DE TU CAMPAÑA","🔍",
     card(
       row("Negocio", biz)
-      +row("Giro", giroLabel)
+      +row("Giro", (wizardData.giro === "otro" && wizardData.giroCustom) ? wizardData.giroCustom : giroLabel)
       +row("Producto / Servicio", prod)
       +(precio?row("Precio aproximado", "$"+precioNum.toLocaleString()+" MXN"):"")
       +row("Objetivo en Meta", metaObjText)
@@ -6325,8 +6357,9 @@ function generateCampaign() {
       '<div style="font-size:11px;color:var(--gold);font-weight:700;letter-spacing:1px;margin-bottom:10px">PÚBLICO 1 — ADVANTAGE+ AMPLIO</div>'
       +row("Lugares", city+" + "+radius+"km")
       +row("Edad mínima", "18")
-      +row("Sugerencia de edad", ageRec)
-      +row("Género", genLabel)
+      +row("Tu selección de edad", edad || ageRec)
+      +row("Recomendado por producto", ageRec)
+      +row("Género seleccionado", genLabel)
       +'<div style="margin-top:10px;font-size:11px;color:var(--gray);margin-bottom:6px">SEGMENTACIÓN DETALLADA (2-3 intereses amplios)</div>'
       +kwTags(p1ints)
       +'<div style="margin-top:12px;font-size:12px;color:#7DB8F7">📌 <strong>Cuándo usarlo:</strong> Al inicio, cuando no tienes datos. Deja que Meta aprenda quién convierte.</div>'
@@ -6337,8 +6370,9 @@ function generateCampaign() {
       '<div style="font-size:11px;color:var(--gold);font-weight:700;letter-spacing:1px;margin-bottom:10px">PÚBLICO 2 — INTERESES DIRECTOS</div>'
       +row("Lugares", city+" + "+radius+"km")
       +row("Edad mínima", "18")
-      +row("Sugerencia de edad", ageRec)
-      +row("Género", genLabel)
+      +row("Tu selección de edad", edad || ageRec)
+      +row("Recomendado por producto", ageRec)
+      +row("Género seleccionado", genLabel)
       +'<div style="margin-top:10px;font-size:11px;color:var(--gray);margin-bottom:6px">SEGMENTACIÓN DETALLADA (intereses directos del giro)</div>'
       +kwTags(p2ints)
       +'<div style="margin-top:12px;font-size:12px;color:#7DB8F7">📌 <strong>Cuándo usarlo:</strong> Cuando quieres llegar a personas que ya muestran interés en tu categoría.</div>'
@@ -6349,8 +6383,9 @@ function generateCampaign() {
       '<div style="font-size:11px;color:var(--gold);font-weight:700;letter-spacing:1px;margin-bottom:10px">PÚBLICO 3 — INTENCIÓN / NECESIDAD</div>'
       +row("Lugares", city+" + "+radius+"km")
       +row("Edad mínima", "18")
-      +row("Sugerencia de edad", ageRec)
-      +row("Género", genLabel)
+      +row("Tu selección de edad", edad || ageRec)
+      +row("Recomendado por producto", ageRec)
+      +row("Género seleccionado", genLabel)
       +'<div style="margin-top:10px;font-size:11px;color:var(--gray);margin-bottom:6px">SEGMENTACIÓN DETALLADA (personas con intención de compra)</div>'
       +kwTags(p3ints)
       +'<div style="margin-top:12px;font-size:12px;color:#7DB8F7">📌 <strong>Cuándo usarlo:</strong> Cuando quieres llegar a personas que están buscando activamente resolver un problema o necesidad.</div>'
@@ -6378,7 +6413,11 @@ function generateCampaign() {
 
 
   h += section("BANCO DE SEGMENTACIÓN DETALLADA","🏦",
-    card(
+    '<div style="background:rgba(184,146,42,0.08);border:1px solid rgba(184,146,42,0.25);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px">'
+    +'<span style="color:var(--gold);font-weight:700">🎯 Segmentación generada para: </span>'
+    +'<span style="color:var(--white)">'+(window._apiSegOverride ? '✨ IA en tiempo real — ' : '📚 Librería local — ')+'"'+prod+'" en giro "'+giroLabel+'"</span>'
+    +'</div>'
+    +card(
       '<div class="tip-box" style="font-size:12px;margin-bottom:14px">'
       +'<strong>Instrucciones importantes:</strong><br>'
       +'1. Busca estos términos <strong>uno por uno</strong> en Meta Ads Manager.<br>'
@@ -6977,8 +7016,8 @@ async function getAudienceFromAPI(giro, prod, obj, city, edad, genero, nse) {
   var systemPrompt = "Eres un experto en Meta Ads con 10 años de experiencia en el mercado mexicano. Tu trabajo es generar segmentaciones detalladas para Meta Ads Manager basadas en el negocio y producto específico del cliente. Siempre respondes SOLO en JSON válido, sin texto extra, sin markdown, sin backticks.";
 
   var userMessage = "Genera la segmentación detallada para Meta Ads para este negocio:\n"
-    + "- Giro: " + giro + "\n"
-    + "- Producto/Servicio: " + prod + "\n"
+    + "- Giro del negocio: " + (wizardData.giroCustom || giroLabel || giro) + "\n"
+    + "- Producto/Servicio ESPECÍFICO (esto es lo más importante): " + prod + "\n"
     + "- Objetivo de campaña: " + obj + "\n"
     + "- Ciudad: " + city + "\n"
     + "- Edad audiencia: " + edad + "\n"
@@ -8622,6 +8661,15 @@ function renderStep1(c) {
     html += '</div>';
   });
     html += '</div>';
+    html += '</div>';
+    // Show text input when "otro" is selected
+    if (wizardData.giro === 'otro') {
+      html += '<div style="margin-top:14px">';
+      html += '<div style="font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.5px;margin-bottom:6px">¿CUÁL ES TU GIRO ESPECÍFICO?</div>';
+      html += '<input class="wiz-input" id="w_giroCustom" type="text" placeholder="Ej: Gimnasio, Veterinaria, Agencia de viajes, Peluquería..." value="'+(wizardData.giroCustom||'')+'" oninput="wizardData.giroCustom=this.value" style="margin-bottom:4px">';
+      html += '<div style="font-size:11px;color:var(--gray)">Esto ayuda a la IA a generar segmentación específica para tu negocio</div>';
+      html += '</div>';
+    }
     html += '<div class="wiz-nav"><div></div><button class="btn btn-gold btn-wiz" onclick="wNext()" id="btnNext1a">SIGUIENTE →</button></div>';
     html += '</div>';
 
